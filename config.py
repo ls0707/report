@@ -21,7 +21,6 @@ class Config(object):
             self.__cant_split=config.getboolean('options', 'table_cantsplit')
             for opt in config.options('replace'):
                 self.__replace_str.append(config.get('replace', opt).split('->', 1))
-            print(self.__replace_str)
 
         except ParsingError as e:
             print(e)

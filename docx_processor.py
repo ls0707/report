@@ -35,17 +35,19 @@ class DocxProcessor(object):
                     # for r in paragraph.runs:
                     #     if old in r.text:
                     paragraph.text = paragraph.text.replace(old, new)
-            print(paragraph.text)
+            # print(paragraph.text)
 
     # ----------------------------- Chapter 4Task
     class ParagraphChapter4Task(Task):
-        def __init__(self, config):
+        def __init__(self, config, doc_position):
             self.cfg = config
             self.data = list()
+            self.position=doc_position
             super(DocxProcessor.ParagraphChapter4Task, self).__init__()
 
         def __call__(self, paragraph):
-            pass
+            if self.position.is_chapter4:
+                print(self.position.chapter)
 
         def load_table(self, table):
             self.data.clear()
@@ -56,11 +58,17 @@ class DocxProcessor(object):
             super(DocxProcessor.TableCantsplitTask, self).__init__()
 
         def __call__(self, table):
-            tp = parse_xml(r'<w:cantSplit {}/>'.format(nsdecls('w')))
             for row in table.rows:
-                for p in row._tr.trPr.getchildren():
-                    if 'cantSplit' not in p.tag:
-                        row._tr.get_or_add_trPr().append(tp)
+                print(row)
+                tp = parse_xml(r'<w:cantSplit {}/>'.format(nsdecls('w')))
+                if row._tr.trPr is None:  # trPr为None的情况直接添加属性
+                    print(tp, '--added')
+                    row._tr.get_or_add_trPr().append(tp)
+                else:  # trPr不为None的情况下才做属性遍历，判断该属性是否已经存在
+                    for p in row._tr.trPr.getchildren():
+                        print(p, '--discovered')
+                        if 'cantSplit' not in p.tag:
+                            row._tr.get_or_add_trPr().append(tp)
 
     # ----------------------------- Chapter6 Task
     class TableChapter6Task(Task):
@@ -69,6 +77,30 @@ class DocxProcessor(object):
 
         def __call__(self, table):
             pass
+
+    # ----------------------------- Position
+    class DocPosition(object):
+        def __init__(self):
+            self.__ro_chapter = re.compile('\d+(\.\d+)+')
+            self.__chapter = list()
+            self.this_chapter = list()
+
+        def location_from_paragraph(self, paragraph):
+            ma_chapter = self.__ro_chapter.match(paragraph.text)
+
+            if ma_chapter:
+                self.__chapter = ma_chapter.group().split('.')
+
+        @property
+        def chapter(self):
+            return self.__chapter
+
+        def is_chapter4(self):
+            result = False
+            if len(self.__chapter) > 0:
+                if self.__chapter[0] == 4:
+                    result = True
+            return result
 
     # ============================= DocxProcessor
     def __init__(self, processor_cfg, docx_file):
@@ -81,9 +113,9 @@ class DocxProcessor(object):
         except PackageNotFoundError as e:
             print(e)
             exit(0)
-
+        self.position=DocxProcessor.DocPosition()
         self.paragraph_replace_task = DocxProcessor.ParagraphReplaceTask(processor_cfg)
-        self.paragraph_chapter4_task = DocxProcessor.ParagraphChapter4Task(processor_cfg)
+        self.paragraph_chapter4_task = DocxProcessor.ParagraphChapter4Task(processor_cfg, self.position)
         self.table_cantsplit_task = DocxProcessor.TableCantsplitTask()
         self.table_chapter6_task = DocxProcessor.TableChapter6Task()
 
@@ -96,7 +128,7 @@ class DocxProcessor(object):
                                    self.table_chapter6_task if self.cfg.chapter6_enabled else None
                                    ]
 
-    def start(self):
+    def start(self):  # 执行文档处理过程，处理结束后保存
         for block in self.iter_block_items(self.document):
             if isinstance(block, Paragraph):
                 self.process_paragraph(block)
@@ -125,6 +157,7 @@ class DocxProcessor(object):
                     exit(0)
 
     def process_paragraph(self, paragraph):
+        self.position.location_from_paragraph(paragraph)
         for func in self.paragraph_process_list:  # 顺次以paragraph为参数，执行列表中的函数
             if func is not None:
                 func(paragraph)
