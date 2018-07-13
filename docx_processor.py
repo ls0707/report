@@ -7,7 +7,6 @@ from docx.oxml.ns import nsdecls
 from docx.oxml import parse_xml
 from docx.document import Document as _Document
 from docx.table import Table, _Row, _Cell
-from docx.text.paragraph import Paragraph
 from config import Config
 from docx.opc.exceptions import PackageNotFoundError
 from clint.textui import prompt, puts, colored, validators
@@ -268,12 +267,6 @@ class DocxProcessor(object):
         for func in self.paragraph_process_list:  # 顺次以paragraph为参数，执行列表中的函数
             if func is not None:
                 func(paragraph)
-        #
-        # if 'a' in paragraph.text:
-        #     print('in')
-        #     for i in paragraph.runs:
-        #         if 'a' in i.text:
-        #             i.text = i.text.replace('a', 'd')
 
     def process_table(self, table):
         for func in self.table_process_list:
