@@ -97,14 +97,22 @@ class DocxProcessor(object):
                                 have_satisfied = False
                                 for b in self.table_satisfy_values:
                                     have_satisfied = have_satisfied or b
-                                # print(have_satisfied, have_unsatisfied)
+                                management_section_strs = ['安全管理', '安全管理机构', '人员安全管理', '系统建设管理', '系统运维管理']
+                                end_str = '安全性'
+                                if self.section_name in management_section_strs:
+                                    end_str = '规范性'
                                 if have_unsatisfied:
                                     # 如果有不符合项时，则文档内有不符合项表4-x-2
                                     satisfied_list = list(filter(lambda x: x != '',
-                                                                 map(lambda x, y, z: x if y and not z else '',
+                                                                 map(lambda x, y: x if y else '',
                                                                      self.table_col_names,
-                                                                     self.table_satisfy_values,
-                                                                     self.table_some_and_not_satisfy_values)))
+                                                                     self.table_satisfy_values)))
+                                    # satisfied_list = list(filter(lambda x: x != '',
+                                    #                              map(lambda x, y, z: x if y and not z else '',
+                                    #                                  self.table_col_names,
+                                    #                                  self.table_satisfy_values,
+                                    #                                  self.table_some_and_not_satisfy_values)))
+
                                     unsatisfied_list = list(filter(lambda x: x != '',
                                                                    map(lambda x, y: x if y else '',
                                                                        self.table_col_names,
@@ -112,11 +120,12 @@ class DocxProcessor(object):
                                     # print(self.unsatisfied_table_id)
                                     # print(self.section_name, satisfied_list, unsatisfied_list)
                                     if len(satisfied_list) > 0:
-                                        output_str1 = '符合项分析：物理安全除表{}所列项目之外，在{}方面均符合要求，在{}方面具备一定的安全性。'.format(
-                                            self.unsatisfied_table_id, '、'.join(satisfied_list) + (
-                                                '{}'.format('等' if len(satisfied_list) > 1 else '')), self.section_name)
+                                        output_str1 = '符合项分析：{}除表{}所列项目之外，在{}方面符合要求，在{}方面具备一定的{}。'.format(
+                                            self.section_name, self.unsatisfied_table_id, '、'.join(satisfied_list) + (
+                                                '{}'.format('等' if len(satisfied_list) > 1 else '')), self.section_name,
+                                            end_str)
                                     else:
-                                        output_str1 = '应用安全在各方面均存在一些问题。'
+                                        output_str1 = '符合项分析：{}在各方面均存在一些问题。'.format(self.section_name)
                                     output_str2 = '部分符合和不符合项分析：{}在{}方面还存在一些问题，详见表{}。'.format(self.section_name,
                                                                                              '、'.join(
                                                                                                  unsatisfied_list) + (
@@ -127,17 +136,19 @@ class DocxProcessor(object):
                                     print(output_str2)
                                     opp = self.insert_paragraph_after(paragraph, output_str1, 'NER-CONTENTTEXT3')
                                     self.insert_paragraph_after(opp, output_str2, 'NER-CONTENTTEXT3')
+                                    # opp = self.insert_paragraph_after(paragraph, output_str1, 'NER-CONTENTTEXT3')
+                                    # self.insert_paragraph_after(opp, output_str2, 'NER-CONTENTTEXT3')
                                 elif not have_unsatisfied and have_satisfied:
                                     # 如果没有不符合项时，则文档内无不符合项表
                                     satisfied_list = self.table_col_names
-                                    output_str = '在{}方面均符合要求，在{}方面具备一定的安全性。'.format('、'.join(self.table_col_names) + (
+                                    output_str = '在{}方面符合要求，在{}方面具备一定的{}。'.format('、'.join(self.table_col_names) + (
                                         '{}'.format('等' if len(satisfied_list) > 1 else '')),
-                                                                                    self.section_name)
+                                                                                  self.section_name, end_str)
                                     print(output_str)
                                     self.insert_paragraph_after(paragraph, output_str, 'NER-CONTENTTEXT3')
+                                    # self.insert_paragraph_after(paragraph, output_str, 'NER-CONTENTTEXT3')
                                 else:
                                     pass
-                                    print('-' * 20)
                                 ############################
 
         def insert_paragraph_after(self, paragraph, text=None, style=None):
@@ -160,14 +171,27 @@ class DocxProcessor(object):
                     try:
                         if i == 1:
                             self.table_col_names = [cell.text for cell in row.cells[3:]]
-                        elif (i - 2) % 4 == 0:
+                        elif i > 1 and (i - 2) % 4 == 0:
                             if len(self.table_satisfy_values) > 0:
                                 self.table_satisfy_values = list(map(lambda x, y: x or y, self.table_satisfy_values,
                                                                      [bool(int(cell.text)) if i > 2 else
                                                                       cell.text for i, cell in
                                                                       enumerate(row.cells)][3:]))
 
-                        elif i > 1 and ((i - 2) % 4 == 1 or (i - 2) % 4 == 2):
+                        elif i > 1 and (i - 2) % 4 == 1:
+                            if self.cfg.chapter4_mode == 1:
+                                if len(self.table_satisfy_values) > 0:
+                                    self.table_satisfy_values = list(map(lambda x, y: x or y, self.table_satisfy_values,
+                                                                         [bool(int(cell.text)) if i > 2 else
+                                                                          cell.text for i, cell in
+                                                                          enumerate(row.cells)][3:]))
+                            if len(self.table_some_and_not_satisfy_values) > 0:
+                                self.table_some_and_not_satisfy_values = list(map(lambda x, y: x or y,
+                                                                                  self.table_some_and_not_satisfy_values
+                                                                                  , [bool(int(cell.text)) if i > 2 else
+                                                                                     cell.text for i, cell in
+                                                                                     enumerate(row.cells)][3:]))
+                        elif i > 1 and (i - 2) % 4 == 2:
                             if len(self.table_some_and_not_satisfy_values) > 0:
                                 self.table_some_and_not_satisfy_values = list(map(lambda x, y: x or y,
                                                                                   self.table_some_and_not_satisfy_values
